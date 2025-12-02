@@ -5,10 +5,17 @@ import (
 	"banking_transaction_go/models"
 )
 
-type UserRepository struct{}
+type UserRepository struct{
+	db *gorm.DB
+}
 
+func NewUserRepo (db *gorm.DB){
+	return UserRepository{
+		db:db
+	}
+}
 func (UserRepository) Create(user models.User) (*models.User, error) {
-	err := database.DB.Create(&user).Error
+	err :=db.Create(&user).Error
 	return &user, err
 }
 
