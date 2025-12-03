@@ -12,7 +12,6 @@ type BankAccountController struct {
 	Service *services.BankAccountService
 }
 
-
 func (bc *BankAccountController) Create(c echo.Context) error {
 	var body struct {
 		AccountNumber string `json:"account_number"`
@@ -21,7 +20,6 @@ func (bc *BankAccountController) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid payload"})
 	}
 
-	// userID, err := getUserIDFromHeader(c)
 	user_id, err := strconv.Atoi(c.Get("user_id").(string))
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "userID not found in context"})
@@ -49,7 +47,6 @@ func (bc *BankAccountController) Get(c echo.Context) error {
 }
 
 func (bc *BankAccountController) ListByUser(c echo.Context) error {
-	// userID, err := getUserIDFromHeader(c)
 	user_id, err := strconv.Atoi(c.Get("user_id").(string))
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "userID not found in context"})
