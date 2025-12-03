@@ -56,9 +56,6 @@ func (bc *BankAccountController) ListByUser(c echo.Context) error {
 	}
 	userID := uint(user_id)
 
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
-	}
 	accts, err := bc.Service.ListByUser(userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
