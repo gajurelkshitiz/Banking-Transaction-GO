@@ -1,12 +1,11 @@
 package controllers
 
 import (
-	"net/http"
 	"banking_transaction_go/services"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 )
-
 
 type AuthController struct {
 	Service *services.AuthService
@@ -14,8 +13,8 @@ type AuthController struct {
 
 func (ac *AuthController) Register(c echo.Context) error {
 	var body struct {
-		Name string `json:"name"`
-		Email string `json:"email"`
+		Name     string `json:"name"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
@@ -30,14 +29,13 @@ func (ac *AuthController) Register(c echo.Context) error {
 
 	return c.JSON(201, echo.Map{
 		"message": "User registered successfully",
-		"user": user,
+		"user":    user,
 	})
 }
 
-
 func (ac *AuthController) Login(c echo.Context) error {
 	var body struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
@@ -51,8 +49,8 @@ func (ac *AuthController) Login(c echo.Context) error {
 	}
 
 	return c.JSON(200, echo.Map{
-		"access_token": access,
+		"access_token":  access,
 		"refresh_token": refresh,
-		"user": user,
+		"user":          user,
 	})
 }

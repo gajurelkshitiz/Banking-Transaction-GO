@@ -1,33 +1,32 @@
 package repositories
 
 import (
-	"banking_transaction_go/database"
 	"banking_transaction_go/models"
+
+	"gorm.io/gorm"
 )
 
-type UserRepository struct{
+type UserRepository struct {
 	db *gorm.DB
 }
 
-func NewUserRepo (db *gorm.DB){
-	return UserRepository{
-		db:db
-	}
+func NewUserRepo(db *gorm.DB) *UserRepository {
+	return &UserRepository{db: db}
 }
-func (UserRepository) Create(user models.User) (*models.User, error) {
-	err :=db.Create(&user).Error
+func (r *UserRepository) Create(user models.User) (*models.User, error) {
+	err := r.db.Create(&user).Error
 	return &user, err
 }
 
-func (UserRepository) FindByEmail(email string) (*models.User, error) {
+func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
-	err := database.DB.Where("email = ?", email).First(&user).Error
+	err := r.db.Where("email = ?", email).First(&user).Error
 	return &user, err
 }
 
-func (UserRepository) Exists(email string) bool {
+func (r *UserRepository) Exists(email string) bool {
 	var count int64
-	database.DB.Model(&models.User{}).
+	r.db.Model(&models.User{}).
 		Where("email = ?", email).
 		Count(&count)
 	return count > 0
