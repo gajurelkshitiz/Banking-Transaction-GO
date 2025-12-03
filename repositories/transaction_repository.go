@@ -17,3 +17,8 @@ func NewTransactionRepository(db *gorm.DB) *TransactionRepository {
 func (r *TransactionRepository) Create(txn *models.Transaction) error {
 	return r.db.Create(txn).Error
 }
+
+
+func (r *TransactionRepository) CreateWithTx(tx *gorm.DB, txn *models.Transaction) error {
+    return tx.Create(txn).Error
+}

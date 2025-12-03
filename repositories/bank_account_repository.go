@@ -14,6 +14,10 @@ func NewBankAccountRepository(db *gorm.DB) *BankAccountRepository {
 	return &BankAccountRepository{db}
 }
 
+func (r *BankAccountRepository) Begin() *gorm.DB {
+	return r.db.Begin()
+}
+
 func (r *BankAccountRepository) Create(account models.BankAccount) (*models.BankAccount, error) {
 	err := r.db.Create(&account).Error
 	return &account, err
@@ -29,6 +33,22 @@ func (r *BankAccountRepository) FindByAccountNumber(number string) (*models.Bank
 	var acct models.BankAccount
 	err := r.db.Where("account_number = ?", number).First(&acct).Error
 	return &acct, err
+}
+
+func (r *BankAccountRepository) FindByIDTx(tx *gorm.DB, id uint) (*models.BankAccount, error) {
+    var acct models.BankAccount
+    if err := tx.First(&acct, id).Error; err != nil {
+        return nil, err
+    }
+    return &acct, nil
+}
+
+func (r *BankAccountRepository) FindByAccountNumberTx(tx *gorm.DB, number string) (*models.BankAccount, error) {
+    var acct models.BankAccount
+    if err := tx.Where("account_number = ?", number).First(&acct).Error; err != nil {
+        return nil, err
+    }
+    return &acct, nil
 }
 
 func (r *BankAccountRepository) Delete(id uint) error {
@@ -49,4 +69,10 @@ func (r *BankAccountRepository) ChangeBalance(id uint, delta float64) error {
 	return r.db.Model(&models.BankAccount{}).
 		Where("id = ?", id).
 		UpdateColumn("balance", gorm.Expr("balance + ?", delta)).Error
+}
+
+func (r *BankAccountRepository) ChangeBalanceTx(tx *gorm.DB, id uint, delta float64) error {
+    return tx.Model(&models.BankAccount{}).
+        Where("id = ?", id).
+        UpdateColumn("balance", gorm.Expr("balance + ?", delta)).Error
 }

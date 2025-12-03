@@ -1,14 +1,11 @@
 package services
 
 import (
-	"banking_transaction_go/database"
 	"banking_transaction_go/models"
 	"banking_transaction_go/repositories"
 	"errors"
 	"fmt"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 type BankAccountService struct {
@@ -53,15 +50,12 @@ func (s *BankAccountService) Deposit(accountID uint, amount float64, description
 	}
 
 	// Start DB trasaction
-	tx := database.DB.Begin()
+	tx := s.BankRepo.Begin()
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 
-	// change balance
-	if err := tx.Model(&models.BankAccount{}).
-		Where("id = ?", accountID).
-		UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+	if err := s.BankRepo.ChangeBalanceTx(tx, accountID, amount); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -95,26 +89,27 @@ func (s *BankAccountService) Withdraw(accountID uint, amount float64, descriptio
 		return nil, errors.New("amount must be positive")
 	}
 
-	tx := database.DB.Begin()
+	tx := s.BankRepo.Begin()
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 
 	// check balance
-	var acct models.BankAccount
-	if err := tx.Clauses().Where("id = ?", accountID).First(&acct).Error; err != nil {
+	var acct *models.BankAccount
+	var err error
+
+	if acct, err = s.BankRepo.FindByIDTx(tx, accountID); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
+
 	if acct.Balance < amount {
 		tx.Rollback()
 		return nil, errors.New("insufficient funds")
 	}
 
 	// subtract
-	if err := tx.Model(&models.BankAccount{}).
-		Where("id = ?", accountID).
-		UpdateColumn("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+	if err := s.BankRepo.ChangeBalanceTx(tx, accountID, -amount); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -129,7 +124,7 @@ func (s *BankAccountService) Withdraw(accountID uint, amount float64, descriptio
 		Description:     description,
 	}
 
-	if err := tx.Create(txn).Error; err != nil {
+	if err := s.TxnRepo.CreateWithTx(tx, txn); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -149,17 +144,19 @@ func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount 
 		return nil, errors.New("amount must be > 0")
 	}
 
-	tx := database.DB.Begin()
+	tx := s.BankRepo.Begin()
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 
-	var fromAcct, toAcct models.BankAccount
-	if err := tx.Where("account_number = ?", fromAccountNo).First(&fromAcct).Error; err != nil {
+	fromAcct, err := s.BankRepo.FindByAccountNumberTx(tx, fromAccountNo)
+	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
-	if err := tx.Where("account_number = ?", toAccountNo).First(&toAcct).Error; err != nil {
+
+	toAcct, err := s.BankRepo.FindByAccountNumberTx(tx, toAccountNo)
+	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -169,16 +166,12 @@ func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount 
 		return nil, errors.New("insufficient funds")
 	}
 
-	if err := tx.Model(&models.BankAccount{}).
-		Where("id = ?", fromAcct.ID).
-		UpdateColumn("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+	if err := s.BankRepo.ChangeBalanceTx(tx, fromAcct.ID, -amount); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
-	if err := tx.Model(&models.BankAccount{}).
-		Where("id = ?", toAcct.ID).
-		UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+	if err := s.BankRepo.ChangeBalanceTx(tx, toAcct.ID, amount); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -192,7 +185,7 @@ func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount 
 		Status:          "success",
 	}
 
-	if err := tx.Create(txn).Error; err != nil {
+	if err := s.TxnRepo.CreateWithTx(tx, txn); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
