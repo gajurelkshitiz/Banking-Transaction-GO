@@ -1,0 +1,52 @@
+package repositories
+
+import (
+	"banking_transaction_go/models"
+
+	"gorm.io/gorm"
+)
+
+type BankAccountRepository struct {
+	db *gorm.DB
+}
+
+func NewBankAccountRepository(db *gorm.DB) *BankAccountRepository {
+	return &BankAccountRepository{db}
+}
+
+func (r *BankAccountRepository) Create(account models.BankAccount) (*models.BankAccount, error) {
+	err := r.db.Create(&account).Error
+	return &account, err
+}
+
+func (r *BankAccountRepository) FindByID(id uint) (*models.BankAccount, error) {
+	var acct models.BankAccount
+	err := r.db.First(&acct, id).Error
+	return &acct, err
+}
+
+func (r *BankAccountRepository) FindByAccountNumber(number string) (*models.BankAccount, error) {
+	var acct models.BankAccount
+	err := r.db.Where("account_number = ?", number).First(&acct).Error
+	return &acct, err
+}
+
+func (r *BankAccountRepository) Delete(id uint) error {
+	return r.db.Delete(&models.BankAccount{}, id).Error
+}
+
+func (r *BankAccountRepository) ListByUser(userID uint) ([]models.BankAccount, error) {
+	var out []models.BankAccount
+	err := r.db.Where("user_id = ?", userID).Find(&out).Error
+	return out, err
+}
+
+func (r *BankAccountRepository) Update(acct *models.BankAccount) error {
+	return r.db.Save(acct).Error
+}
+
+func (r *BankAccountRepository) ChangeBalance(id uint, delta float64) error {
+	return r.db.Model(&models.BankAccount{}).
+		Where("id = ?", id).
+		UpdateColumn("balance", gorm.Expr("balance + ?", delta)).Error
+}
