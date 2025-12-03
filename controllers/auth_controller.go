@@ -54,3 +54,24 @@ func (ac *AuthController) Login(c echo.Context) error {
 		"user":          user,
 	})
 }
+
+func (ac *AuthController) Refresh(c echo.Context) error {
+	var body struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+	}
+
+	accessToken, err := ac.Service.Refresh(body.RefreshToken)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "access token set in Authorization header",
+		"access_token": accessToken,
+	})
+
+}

@@ -3,6 +3,7 @@ package routes
 import (
 	"banking_transaction_go/controllers"
 	"banking_transaction_go/database"
+	"banking_transaction_go/middlewares"
 	"banking_transaction_go/repositories"
 	"banking_transaction_go/services"
 
@@ -16,8 +17,8 @@ func BankAccountRoutes(e *echo.Echo) {
 	bankController := &controllers.BankAccountController{Service: bankService}
 
 	g := e.Group("/api/v1/accounts")
-	g.POST("", bankController.Create)
-	g.GET("", bankController.ListByUser)
+	g.POST("", bankController.Create, middlewares.AuthMiddleware)
+	g.GET("", bankController.ListByUser, middlewares.AuthMiddleware)
 	g.GET("/:id", bankController.Get)
 	g.DELETE("/:id", bankController.Delete)
 	g.POST("/:id/deposit", bankController.Deposit)

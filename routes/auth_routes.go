@@ -18,4 +18,5 @@ func AuthRoutes(e *echo.Echo) {
 	// Adding routes to the group
 	g.POST("/register", authController.Register)
 	g.POST("/login", authController.Login)
+	g.POST("/refresh", authController.Refresh)
 }

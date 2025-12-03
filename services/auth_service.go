@@ -50,3 +50,22 @@ func (s *AuthService) Login(email, password string) (string, string, *models.Use
 
 	return accessToken, refreshToken, user, nil
 }
+
+
+func (s *AuthService) Refresh(refreshToken string) (string, error) {
+	if refreshToken == "" {
+		return "", errors.New("refresh token required")
+	}
+
+	claims, err := utils.ValidateToken(refreshToken)
+	if err != nil {
+		return "", err
+	}
+
+	accessToken, err := utils.GenerateAccessToken(claims.UserID)
+	if err != nil {
+		return "", err
+	}
+
+	return accessToken, nil
+}

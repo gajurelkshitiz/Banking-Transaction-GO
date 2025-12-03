@@ -2,10 +2,8 @@ package controllers
 
 import (
 	"banking_transaction_go/services"
-	"banking_transaction_go/utils"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -15,21 +13,6 @@ type BankAccountController struct {
 }
 
 
-func getUserIDFromHeader(c echo.Context) (uint, error) {
-	auth := c.Request().Header.Get("Authorization")
-	if auth == "" {
-		return 0, echo.NewHTTPError(http.StatusUnauthorized, "missing authorization header")
-	}
-	if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-		auth = auth[7:]
-	}
-	claims, err := utils.ValidateToken(auth)
-	if err != nil {
-		return 0, err
-	}
-	return claims.UserID, nil
-}
-
 func (bc *BankAccountController) Create(c echo.Context) error {
 	var body struct {
 		AccountNumber string `json:"account_number"`
@@ -38,10 +21,12 @@ func (bc *BankAccountController) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid payload"})
 	}
 
-	userID, err := getUserIDFromHeader(c)
+	// userID, err := getUserIDFromHeader(c)
+	user_id, err := strconv.Atoi(c.Get("user_id").(string))
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "userID not found in context"})
 	}
+	userID := uint(user_id)
 
 	acct, err := bc.Service.Create(userID, body.AccountNumber)
 	if err != nil {
@@ -64,7 +49,13 @@ func (bc *BankAccountController) Get(c echo.Context) error {
 }
 
 func (bc *BankAccountController) ListByUser(c echo.Context) error {
-	userID, err := getUserIDFromHeader(c)
+	// userID, err := getUserIDFromHeader(c)
+	user_id, err := strconv.Atoi(c.Get("user_id").(string))
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "userID not found in context"})
+	}
+	userID := uint(user_id)
+
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 	}
