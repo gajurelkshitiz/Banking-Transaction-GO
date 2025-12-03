@@ -1,0 +1,205 @@
+package services
+
+import (
+	"banking_transaction_go/database"
+	"banking_transaction_go/models"
+	"banking_transaction_go/repositories"
+	"errors"
+	"fmt"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+type BankAccountService struct {
+	BankRepo *repositories.BankAccountRepository
+	TxnRepo  *repositories.TransactionRepository
+}
+
+func NewBankAccountService(br *repositories.BankAccountRepository, tr *repositories.TransactionRepository) *BankAccountService {
+	return &BankAccountService{BankRepo: br, TxnRepo: tr}
+}
+
+func (s *BankAccountService) Create(userID uint, accountNumber string) (*models.BankAccount, error) {
+	if _, err := s.BankRepo.FindByAccountNumber(accountNumber); err == nil {
+		return nil, errors.New("account number already exists")
+	}
+
+	acct := models.BankAccount{
+		UserID:        userID,
+		AccountNumber: accountNumber,
+		Balance:       0,
+		Status:        "active",
+	}
+	return s.BankRepo.Create(acct)
+}
+
+func (s *BankAccountService) GetByID(id uint) (*models.BankAccount, error) {
+	return s.BankRepo.FindByID(id)
+}
+
+func (s *BankAccountService) ListByUser(userID uint) ([]models.BankAccount, error) {
+	return s.BankRepo.ListByUser(userID)
+}
+
+func (s *BankAccountService) Delete(id uint) error {
+	return s.BankRepo.Delete(id)
+}
+
+// Deposit increases balance and logs a Transaction atomically.
+func (s *BankAccountService) Deposit(accountID uint, amount float64, description string) (*models.Transaction, error) {
+	if amount <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
+
+	// Start DB trasaction
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	// change balance
+	if err := tx.Model(&models.BankAccount{}).
+		Where("id = ?", accountID).
+		UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// create txn log
+	txn := &models.Transaction{
+		ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+		FromAccountID:   0,
+		ToAccountID:     accountID,
+		Amount:          amount,
+		TransactionType: "deposit",
+		Status:          "success",
+		Description:     description,
+	}
+
+	if err := tx.Create(txn).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return txn, nil
+}
+
+// Decreses balance
+func (s *BankAccountService) Withdraw(accountID uint, amount float64, description string) (*models.Transaction, error) {
+	if amount <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
+
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	// check balance
+	var acct models.BankAccount
+	if err := tx.Clauses().Where("id = ?", accountID).First(&acct).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if acct.Balance < amount {
+		tx.Rollback()
+		return nil, errors.New("insufficient funds")
+	}
+
+	// subtract
+	if err := tx.Model(&models.BankAccount{}).
+		Where("id = ?", accountID).
+		UpdateColumn("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	txn := &models.Transaction{
+		ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+		FromAccountID:   accountID,
+		ToAccountID:     0,
+		Amount:          amount,
+		TransactionType: "withdraw",
+		Status:          "success",
+		Description:     description,
+	}
+
+	if err := tx.Create(txn).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return txn, nil
+}
+
+func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount float64) (*models.Transaction, error) {
+	if fromAccountNo == toAccountNo {
+		return nil, errors.New("cannot transfer to same account")
+	}
+	if amount <= 0 {
+		return nil, errors.New("amount must be > 0")
+	}
+
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	var fromAcct, toAcct models.BankAccount
+	if err := tx.Where("account_number = ?", fromAccountNo).First(&fromAcct).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Where("account_number = ?", toAccountNo).First(&toAcct).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if fromAcct.Balance < amount {
+		tx.Rollback()
+		return nil, errors.New("insufficient funds")
+	}
+
+	if err := tx.Model(&models.BankAccount{}).
+		Where("id = ?", fromAcct.ID).
+		UpdateColumn("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Model(&models.BankAccount{}).
+		Where("id = ?", toAcct.ID).
+		UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	txn := &models.Transaction{
+		ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+		FromAccountID:   fromAcct.ID,
+		ToAccountID:     toAcct.ID,
+		Amount:          amount,
+		TransactionType: "transfer",
+		Status:          "success",
+	}
+
+	if err := tx.Create(txn).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return txn, nil
+}

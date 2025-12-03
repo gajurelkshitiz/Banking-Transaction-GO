@@ -32,6 +32,7 @@ func main() {
 	})
 
 	routes.AuthRoutes(e)
+	routes.BankAccountRoutes(e)
 
 	port := os.Getenv("PORT")
 	if port == "" {
