@@ -12,79 +12,56 @@ type AuthController struct {
 }
 
 func (ac *AuthController) Register(c echo.Context) error {
-	var body struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
+	var body RegisterRequest
 	if err := c.Bind(&body); err != nil {
-		// return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request"})
-		return JSONError(c, http.StatusBadRequest, "", "Invalid request")
+		return JSONError(c, http.StatusBadRequest, "Invalid request", "")
+	}
+	if body.Name == "" || body.Email == "" || body.Password == "" {
+		return JSONError(c, http.StatusBadRequest, "missing fields", "")
 	}
 
 	user, err := ac.Service.Register(body.Name, body.Email, body.Password)
 	if err != nil {
-		// return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		return JSONError(c, http.StatusBadRequest, err.Error(), "")
 	}
 
-	// return c.JSON(201, echo.Map{
-	// 	"message": "User registered successfully",
-	// 	"user":    user,
-	// })
 	return JSONSuccess(c, http.StatusCreated, map[string]interface{}{"user": user}, "User registered successfully")
 }
 
 func (ac *AuthController) Login(c echo.Context) error {
-	var body struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
+	var body LoginRequest
 	if err := c.Bind(&body); err != nil {
-		// return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid Request"})
-		JSONError(c, http.StatusBadRequest, "", "Invalid request")
+		return JSONError(c, http.StatusBadRequest, "Invalid request", "")
+	}
+	if body.Email == "" || body.Password == "" {
+		return JSONError(c, http.StatusBadRequest, "missing credentials", "")
 	}
 
 	access, refresh, user, err := ac.Service.Login(body.Email, body.Password)
 	if err != nil {
-		// return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 		return JSONError(c, http.StatusUnauthorized, err.Error(), "")
 	}
 
-	// return c.JSON(200, echo.Map{
-	// 	"access_token":  access,
-	// 	"refresh_token": refresh,
-	// 	"user":          user,
-	// })
-	return JSONSuccess(c, http.StatusOK, map[string]interface{}{
-		"access_token": access,
-		"refresh_token": refresh,
-		"user": user,
+	return JSONSuccess(c, http.StatusOK, AuthPayload{
+		AccessToken:  access,
+		RefreshToken: refresh,
+		User:         user,
 	}, "")
 }
 
 func (ac *AuthController) Refresh(c echo.Context) error {
-	var body struct {
-		RefreshToken string `json:"refresh_token"`
-	}
-
+	var body RefreshRequest
 	if err := c.Bind(&body); err != nil {
-		// return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
-		return JSONError(c, http.StatusBadRequest, "", "Invalid request")
+		return JSONError(c, http.StatusBadRequest, "Invalid request", "")
+	}
+	if body.RefreshToken == "" {
+		return JSONError(c, http.StatusBadRequest, "missing refresh token", "")
 	}
 
 	accessToken, err := ac.Service.Refresh(body.RefreshToken)
 	if err != nil {
-		// return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 		return JSONError(c, http.StatusUnauthorized, err.Error(), "")
 	}
-
-	// return c.JSON(http.StatusOK, echo.Map{
-	// 	"message": "access token set in Authorization header",
-	// 	"access_token": accessToken,
-	// })
 
 	return JSONSuccess(c, http.StatusOK, map[string]interface{}{"access_token": accessToken}, "New access token generated")
 }
