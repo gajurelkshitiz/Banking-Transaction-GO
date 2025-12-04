@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type BankAccountService struct {
@@ -49,40 +51,27 @@ func (s *BankAccountService) Deposit(accountID uint, amount float64, description
 		return nil, errors.New("amount must be positive")
 	}
 
-	// Start DB trasaction
-	tx := s.BankRepo.Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
-
-	// ensure rollback if anything returns before commit
-	defer tx.Rollback()
-
-	if err := s.BankRepo.ChangeBalanceTx(tx, accountID, amount); err != nil {
-		// tx.Rollback()
+	var txn *models.Transaction
+	err := s.BankRepo.WithTx(func(tx *gorm.DB) error {
+		// change balance inside tx
+		if err := s.BankRepo.ChangeBalanceTx(tx, accountID, amount); err != nil {
+			return err
+		}
+		// create txn record using transaction-aware repo
+		txn = &models.Transaction{
+			ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+			FromAccountID:   0,
+			ToAccountID:     accountID,
+			Amount:          amount,
+			TransactionType: "deposit",
+			Status:          "success",
+			Description:     description,
+		}
+		return s.TxnRepo.CreateWithTx(tx, txn)
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	// create txn log
-	txn := &models.Transaction{
-		ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
-		FromAccountID:   0,
-		ToAccountID:     accountID,
-		Amount:          amount,
-		TransactionType: "deposit",
-		Status:          "success",
-		Description:     description,
-	}
-
-	if err := tx.Create(txn).Error; err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, err
-	}
-
 	return txn, nil
 }
 
@@ -92,52 +81,37 @@ func (s *BankAccountService) Withdraw(accountID uint, amount float64, descriptio
 		return nil, errors.New("amount must be positive")
 	}
 
-	tx := s.BankRepo.Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
+	var txn *models.Transaction
+	err := s.BankRepo.WithTx(func(tx *gorm.DB) error {
+		// load account within tx
+		acct, err := s.BankRepo.FindByIDTx(tx, accountID)
+		if err != nil {
+			return err
+		}
+		if acct.Balance < amount {
+			return errors.New("insufficient funds")
+		}
 
-	defer tx.Rollback()
+		// subtract balance
+		if err := s.BankRepo.ChangeBalanceTx(tx, accountID, -amount); err != nil {
+			return err
+		}
 
-	// check balance
-	var acct *models.BankAccount
-	var err error
-
-	if acct, err = s.BankRepo.FindByIDTx(tx, accountID); err != nil {
-		// tx.Rollback()
+		// create txn record
+		txn = &models.Transaction{
+			ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+			FromAccountID:   accountID,
+			ToAccountID:     0,
+			Amount:          amount,
+			TransactionType: "withdraw",
+			Status:          "success",
+			Description:     description,
+		}
+		return s.TxnRepo.CreateWithTx(tx, txn)
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	if acct.Balance < amount {
-		// tx.Rollback()
-		return nil, errors.New("insufficient funds")
-	}
-
-	// subtract
-	if err := s.BankRepo.ChangeBalanceTx(tx, accountID, -amount); err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	txn := &models.Transaction{
-		ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
-		FromAccountID:   accountID,
-		ToAccountID:     0,
-		Amount:          amount,
-		TransactionType: "withdraw",
-		Status:          "success",
-		Description:     description,
-	}
-
-	if err := s.TxnRepo.CreateWithTx(tx, txn); err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, err
-	}
-
 	return txn, nil
 }
 
@@ -149,57 +123,39 @@ func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount 
 		return nil, errors.New("amount must be > 0")
 	}
 
-	tx := s.BankRepo.Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
+	var txn *models.Transaction
+	err := s.BankRepo.WithTx(func(tx *gorm.DB) error {
+		fromAcct, err := s.BankRepo.FindByAccountNumberTx(tx, fromAccountNo)
+		if err != nil {
+			return err
+		}
+		toAcct, err := s.BankRepo.FindByAccountNumberTx(tx, toAccountNo)
+		if err != nil {
+			return err
+		}
+		if fromAcct.Balance < amount {
+			return errors.New("insufficient funds")
+		}
 
-	defer tx.Rollback()
+		if err := s.BankRepo.ChangeBalanceTx(tx, fromAcct.ID, -amount); err != nil {
+			return err
+		}
+		if err := s.BankRepo.ChangeBalanceTx(tx, toAcct.ID, amount); err != nil {
+			return err
+		}
 
-	fromAcct, err := s.BankRepo.FindByAccountNumberTx(tx, fromAccountNo)
+		txn = &models.Transaction{
+			ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
+			FromAccountID:   fromAcct.ID,
+			ToAccountID:     toAcct.ID,
+			Amount:          amount,
+			TransactionType: "transfer",
+			Status:          "success",
+		}
+		return s.TxnRepo.CreateWithTx(tx, txn)
+	})
 	if err != nil {
-		// tx.Rollback()
 		return nil, err
 	}
-
-	toAcct, err := s.BankRepo.FindByAccountNumberTx(tx, toAccountNo)
-	if err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	if fromAcct.Balance < amount {
-		// tx.Rollback()
-		return nil, errors.New("insufficient funds")
-	}
-
-	if err := s.BankRepo.ChangeBalanceTx(tx, fromAcct.ID, -amount); err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	if err := s.BankRepo.ChangeBalanceTx(tx, toAcct.ID, amount); err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	txn := &models.Transaction{
-		ReferenceID:     fmt.Sprintf("txn_%d", time.Now().UnixNano()),
-		FromAccountID:   fromAcct.ID,
-		ToAccountID:     toAcct.ID,
-		Amount:          amount,
-		TransactionType: "transfer",
-		Status:          "success",
-	}
-
-	if err := s.TxnRepo.CreateWithTx(tx, txn); err != nil {
-		// tx.Rollback()
-		return nil, err
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, err
-	}
-
 	return txn, nil
 }

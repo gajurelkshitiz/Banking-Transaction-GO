@@ -36,19 +36,19 @@ func (r *BankAccountRepository) FindByAccountNumber(number string) (*models.Bank
 }
 
 func (r *BankAccountRepository) FindByIDTx(tx *gorm.DB, id uint) (*models.BankAccount, error) {
-    var acct models.BankAccount
-    if err := tx.First(&acct, id).Error; err != nil {
-        return nil, err
-    }
-    return &acct, nil
+	var acct models.BankAccount
+	if err := tx.First(&acct, id).Error; err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
 func (r *BankAccountRepository) FindByAccountNumberTx(tx *gorm.DB, number string) (*models.BankAccount, error) {
-    var acct models.BankAccount
-    if err := tx.Where("account_number = ?", number).First(&acct).Error; err != nil {
-        return nil, err
-    }
-    return &acct, nil
+	var acct models.BankAccount
+	if err := tx.Where("account_number = ?", number).First(&acct).Error; err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
 func (r *BankAccountRepository) Delete(id uint) error {
@@ -72,7 +72,31 @@ func (r *BankAccountRepository) ChangeBalance(id uint, delta float64) error {
 }
 
 func (r *BankAccountRepository) ChangeBalanceTx(tx *gorm.DB, id uint, delta float64) error {
-    return tx.Model(&models.BankAccount{}).
-        Where("id = ?", id).
-        UpdateColumn("balance", gorm.Expr("balance + ?", delta)).Error
+	return tx.Model(&models.BankAccount{}).
+		Where("id = ?", id).
+		UpdateColumn("balance", gorm.Expr("balance + ?", delta)).Error
+}
+
+// WithTx executes the provided function inside a DB transaction.
+// If fn returns an error the transaction is rolled back; otherwise committed.
+// It also recovers from panics to rollback safely.
+func (r *BankAccountRepository) WithTx(fn func(tx *gorm.DB) error) error {
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// recover from panic and rollback
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }
