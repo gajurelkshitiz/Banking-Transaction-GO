@@ -55,8 +55,11 @@ func (s *BankAccountService) Deposit(accountID uint, amount float64, description
 		return nil, tx.Error
 	}
 
+	// ensure rollback if anything returns before commit
+	defer tx.Rollback()
+
 	if err := s.BankRepo.ChangeBalanceTx(tx, accountID, amount); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
@@ -72,7 +75,7 @@ func (s *BankAccountService) Deposit(accountID uint, amount float64, description
 	}
 
 	if err := tx.Create(txn).Error; err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
@@ -94,23 +97,25 @@ func (s *BankAccountService) Withdraw(accountID uint, amount float64, descriptio
 		return nil, tx.Error
 	}
 
+	defer tx.Rollback()
+
 	// check balance
 	var acct *models.BankAccount
 	var err error
 
 	if acct, err = s.BankRepo.FindByIDTx(tx, accountID); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
 	if acct.Balance < amount {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, errors.New("insufficient funds")
 	}
 
 	// subtract
 	if err := s.BankRepo.ChangeBalanceTx(tx, accountID, -amount); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
@@ -125,7 +130,7 @@ func (s *BankAccountService) Withdraw(accountID uint, amount float64, descriptio
 	}
 
 	if err := s.TxnRepo.CreateWithTx(tx, txn); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
@@ -149,30 +154,32 @@ func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount 
 		return nil, tx.Error
 	}
 
+	defer tx.Rollback()
+
 	fromAcct, err := s.BankRepo.FindByAccountNumberTx(tx, fromAccountNo)
 	if err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
 	toAcct, err := s.BankRepo.FindByAccountNumberTx(tx, toAccountNo)
 	if err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
 	if fromAcct.Balance < amount {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, errors.New("insufficient funds")
 	}
 
 	if err := s.BankRepo.ChangeBalanceTx(tx, fromAcct.ID, -amount); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
 	if err := s.BankRepo.ChangeBalanceTx(tx, toAcct.ID, amount); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
@@ -186,7 +193,7 @@ func (s *BankAccountService) Transfer(fromAccountNo, toAccountNo string, amount 
 	}
 
 	if err := s.TxnRepo.CreateWithTx(tx, txn); err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return nil, err
 	}
 
