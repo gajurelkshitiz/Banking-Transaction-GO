@@ -13,9 +13,10 @@ type BankAccountController struct {
 }
 
 func (bc *BankAccountController) Create(c echo.Context) error {
-	var body struct {
-		AccountNumber string `json:"account_number"`
-	}
+	// var body struct {
+	// 	AccountNumber string `json:"account_number"`
+	// }
+	var body CreateAccountRequest
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid payload", "")
 	}

@@ -16,8 +16,11 @@ func (ac *AuthController) Register(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "Invalid request", "")
 	}
-	if body.Name == "" || body.Email == "" || body.Password == "" {
-		return JSONError(c, http.StatusBadRequest, "missing fields", "")
+	// if body.Name == "" || body.Email == "" || body.Password == "" {
+	// 	return JSONError(c, http.StatusBadRequest, "missing fields", "")
+	// }
+	if err := c.Validate(&body); err != nil {
+		return JSONError(c, http.StatusBadRequest, err.Error(), "")
 	}
 
 	user, err := ac.Service.Register(body.Name, body.Email, body.Password)
@@ -35,8 +38,11 @@ func (ac *AuthController) Login(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "Invalid request", "")
 	}
-	if body.Email == "" || body.Password == "" {
-		return JSONError(c, http.StatusBadRequest, "missing credentials", "")
+	// if body.Email == "" || body.Password == "" {
+	// 	return JSONError(c, http.StatusBadRequest, "missing credentials", "")
+	// }
+	if err := c.Validate(&body); err != nil {
+		return JSONError(c, http.StatusBadRequest, err.Error(), "")
 	}
 
 	access, refresh, user, err := ac.Service.Login(body.Email, body.Password)
@@ -56,8 +62,11 @@ func (ac *AuthController) Refresh(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "Invalid request", "")
 	}
-	if body.RefreshToken == "" {
-		return JSONError(c, http.StatusBadRequest, "missing refresh token", "")
+	// if body.RefreshToken == "" {
+	// 	return JSONError(c, http.StatusBadRequest, "missing refresh token", "")
+	// }
+	if err := c.Validate(&body); err != nil {
+		return JSONError(c, http.StatusBadRequest, err.Error(), "")
 	}
 
 	accessToken, err := ac.Service.Refresh(body.RefreshToken)

@@ -7,6 +7,7 @@ import (
 
 	"banking_transaction_go/database"
 	"banking_transaction_go/routes"
+	"banking_transaction_go/validators"
 
 	"github.com/labstack/echo/v4"
 )
@@ -27,6 +28,7 @@ func main() {
 
 	// start server
 	e := echo.New()
+	e.Validator = validators.New()
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
