@@ -9,7 +9,7 @@ type User struct {
 	PasswordHash string
 
 	// Relationship : one user -> many bank accounts
-	BankAccounts []BankAccount `gorm:"foreignKey:UserID"`
+	BankAccounts []BankAccount `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`

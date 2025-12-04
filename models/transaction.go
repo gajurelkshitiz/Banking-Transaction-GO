@@ -9,10 +9,14 @@ type Transaction struct {
 	FromAccountID uint `gorm:"not null"`
 	ToAccountID uint `gorm:"not null"`
 
+	// Associations
+	FromAccount BankAccount `gorm:"foreignKey:FromAccountID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	ToAccount BankAccount `gorm:"foreignKey:ToAccountID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+
 	Amount float64 `gorm:"type:numeric(15,2);not null"`
 
-	TransactionType string `gorm:"type:transaction_type_enum;not null;default:'transfer'"` // transfer, deposit, withdraw
-	Status string `gorm:"type:transaction_status_enum;not null;default:'pending'"` // pending, success, failed
+	TransactionType string `gorm:"type:transaction_type_enum;not null;default:'transfer'"` 
+	Status string `gorm:"type:transaction_status_enum;not null;default:'pending'"` 
 
 	Description string `gorm:"type:text"`
 
