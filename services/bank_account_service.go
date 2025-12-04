@@ -23,7 +23,7 @@ func (s *BankAccountService) Create(userID uint, accountNumber string) (*models.
 	}
 
 	acct := models.BankAccount{
-		UserID:        userID,
+		// UserID:        userID,
 		AccountNumber: accountNumber,
 		Balance:       0,
 		Status:        "active",
