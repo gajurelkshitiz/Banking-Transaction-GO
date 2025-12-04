@@ -13,12 +13,11 @@ type BankAccountController struct {
 }
 
 func (bc *BankAccountController) Create(c echo.Context) error {
-	var body CreateAccountRequest
+	var body struct {
+		AccountNumber string `json:"account_number"`
+	}
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid payload", "")
-	}
-	if body.AccountNumber == "" {
-		return JSONError(c, http.StatusBadRequest, "account_number required", "")
 	}
 
 	user_id, err := strconv.Atoi(c.Get("user_id").(string))
@@ -79,14 +78,13 @@ func (bc *BankAccountController) Deposit(c echo.Context) error {
 	if err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid id", "")
 	}
-	var body AmountRequest
+	var body struct {
+		Amount      float64 `json:"amount"`
+		Description string  `json:"description"`
+	}
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid payload", "")
 	}
-	if body.Amount <= 0 {
-		return JSONError(c, http.StatusBadRequest, "amount must be > 0", "")
-	}
-
 	txn, err := bc.Service.Deposit(uint(id64), body.Amount, body.Description)
 	if err != nil {
 		return JSONError(c, http.StatusBadRequest, err.Error(), "")
@@ -100,14 +98,13 @@ func (bc *BankAccountController) Withdraw(c echo.Context) error {
 	if err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid id", "")
 	}
-	var body AmountRequest
+	var body struct {
+		Amount      float64 `json:"amount"`
+		Description string  `json:"description"`
+	}
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid payload", "")
 	}
-	if body.Amount <= 0 {
-		return JSONError(c, http.StatusBadRequest, "amount must be > 0", "")
-	}
-
 	txn, err := bc.Service.Withdraw(uint(id64), body.Amount, body.Description)
 	if err != nil {
 		return JSONError(c, http.StatusBadRequest, err.Error(), "")
@@ -116,12 +113,14 @@ func (bc *BankAccountController) Withdraw(c echo.Context) error {
 }
 
 func (bc *BankAccountController) Transfer(c echo.Context) error {
-	var body TransferRequest
+	var body struct {
+		FromAccountID string  `json:"from_account_no"`
+		ToAccountID   string  `json:"to_account_no"`
+		Amount        float64 `json:"amount"`
+	}
+
 	if err := c.Bind(&body); err != nil {
 		return JSONError(c, http.StatusBadRequest, "invalid payload", "")
-	}
-	if body.FromAccountID == "" || body.ToAccountID == "" || body.Amount <= 0 {
-		return JSONError(c, http.StatusBadRequest, "invalid transfer payload", "")
 	}
 
 	txn, err := bc.Service.Transfer(body.FromAccountID, body.ToAccountID, body.Amount)

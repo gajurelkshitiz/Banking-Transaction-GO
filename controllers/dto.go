@@ -1,5 +1,7 @@
 package controllers
 
+import "time"
+
 // Request DTOs
 type RegisterRequest struct {
     Name     string `json:"name"`
@@ -31,9 +33,32 @@ type TransferRequest struct {
     Amount        float64 `json:"amount"`
 }
 
-// Response DTOs (optional, can be used as Data payloads)
+// Response / view DTOs - shape exposed to clients
+type UserResponse struct {
+    ID        uint      `json:"id"`
+    Name      string    `json:"name"`
+    Email     string    `json:"email"`
+    CreatedAt time.Time `json:"created_at"`
+    // add only fields you want to expose
+}
+
+type AccountResponse struct {
+    ID            uint   `json:"id"`
+    AccountNumber string `json:"account_number"`
+    Balance       float64  `json:"balance"` // example type
+    OwnerID       uint   `json:"owner_id"`
+}
+
+type TransactionResponse struct {
+    ID          uint    `json:"id"`
+    ReferenceID string  `json:"reference_id"`
+    Amount      float64 `json:"amount"`
+    Type        string  `json:"type"`
+    CreatedAt   string  `json:"created_at"`
+}
+
 type AuthPayload struct {
-    AccessToken  string      `json:"access_token"`
-    RefreshToken string      `json:"refresh_token,omitempty"`
-    User         interface{} `json:"user,omitempty"`
+    AccessToken  string       `json:"access_token"`
+    RefreshToken string       `json:"refresh_token,omitempty"`
+    User         UserResponse `json:"user"`
 }

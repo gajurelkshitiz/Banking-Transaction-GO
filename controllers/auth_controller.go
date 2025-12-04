@@ -25,7 +25,9 @@ func (ac *AuthController) Register(c echo.Context) error {
 		return JSONError(c, http.StatusBadRequest, err.Error(), "")
 	}
 
-	return JSONSuccess(c, http.StatusCreated, map[string]interface{}{"user": user}, "User registered successfully")
+	// map DB user -> safe DTO
+	userResp := NewUserResponse(user)
+	return JSONSuccess(c, http.StatusCreated, map[string]interface{}{"user": userResp}, "User registered successfully")
 }
 
 func (ac *AuthController) Login(c echo.Context) error {
@@ -45,7 +47,7 @@ func (ac *AuthController) Login(c echo.Context) error {
 	return JSONSuccess(c, http.StatusOK, AuthPayload{
 		AccessToken:  access,
 		RefreshToken: refresh,
-		User:         user,
+		User:         NewUserResponse(user),
 	}, "")
 }
 
