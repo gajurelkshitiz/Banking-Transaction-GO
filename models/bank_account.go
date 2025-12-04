@@ -5,8 +5,12 @@ import (
 )
 
 type BankAccount struct {
-	ID            uint    `gorm:"primaryKey;autoIncrement"`
-	UserID        uint    `gorm:"index"`
+	ID     uint `gorm:"primaryKey;autoIncrement"`
+	UserID uint `gorm:"index"`
+
+	// Link back to User
+	User User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+
 	AccountNumber string  `gorm:"type:varchar(20);unique;not null"`
 	Balance       float64 `gorm:"type:numeric(15,2);not null;default:0"`
 	Status        string  `gorm:"type:varchar(20);not null;default:'active'"`
